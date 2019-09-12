@@ -7,6 +7,7 @@ use crate::tfpb::node_def::NodeDef;
 
 pub mod conv2d;
 pub mod dw_conv2d;
+pub mod extract_images_patches;
 pub mod fused_batch_norm;
 pub mod pools;
 pub mod s2b;
