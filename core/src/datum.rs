@@ -295,6 +295,18 @@ impl TryInto<f32> for String {
     }
 }
 
+impl TryInto<i32> for bool {
+    fn try_into(&self) -> TractResult<i32> {
+        Ok(*self as usize as i32)
+    }
+}
+
+impl TryInto<bool> for i32 {
+    fn try_into(&self) -> TractResult<bool> {
+        Ok(*self != 0)
+    }
+}
+
 datum!(bool, Bool);
 datum!(f16, F16);
 datum!(f32, F32);

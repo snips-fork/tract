@@ -101,6 +101,7 @@ impl<'a> TryFrom<&'a TensorProto> for Tensor {
                         .collect::<TractResult<Vec<String>>>()?;
                     tensor_from_repeated_field(&*dims, strings)?
                 }
+                DataType::DT_BOOL => tensor_from_repeated_field(&*dims, t.get_bool_val().to_vec())?,
                 _ => unimplemented!("missing type (for _val()) {:?}", dtype),
             }
         };
