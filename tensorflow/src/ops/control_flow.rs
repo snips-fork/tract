@@ -101,5 +101,12 @@ impl InferenceRulesOp for NextIteration {
         Ok(())
     }
 
+    fn nboutputs(&self) -> TractResult<usize> {
+        match self.role {
+            NextIterationRole::Source => Ok(1),
+            NextIterationRole::Sink => Ok(0),
+        }
+    }
+
     inference_op_as_op!();
 }

@@ -94,8 +94,9 @@ impl Framework<GraphDef> for Tensorflow {
             let op = match self.op_register.0.get(pbnode.get_op()) {
                 Some(builder) => (builder)(&context, pbnode)?,
                 None => tract_core::ops::unimpl::UnimplementedOp::new(
-                    pbnode.get_op(),
+                    pbnode.get_op().to_string(),
                     format!("{:?}", pbnode),
+                    output_arity,
                 )
                 .into(),
             };

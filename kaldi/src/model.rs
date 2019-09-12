@@ -218,6 +218,7 @@ impl Framework<KaldiProtoModel> for Kaldi {
                                 (Box::new(tract_core::ops::unimpl::UnimplementedOp::new(
                                     component.klass.to_string(),
                                     format!("{:?}", line),
+                                    1,
                                 )))
                             }
                         };

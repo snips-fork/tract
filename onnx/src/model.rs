@@ -73,8 +73,9 @@ impl<'a> ParsingContext<'a> {
                 Some(builder) => (builder)(&ctx, pbnode)?,
                 None => (
                     tract_core::ops::unimpl::UnimplementedOp::new(
-                        pbnode.get_op_type(),
+                        pbnode.get_op_type().to_string(),
                         format!("{:?}", pbnode),
+                        pbnode.get_output().len(),
                     )
                     .into(),
                     vec![],

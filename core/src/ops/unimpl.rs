@@ -1,15 +1,10 @@
 use crate::internal::*;
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, new)]
 pub struct UnimplementedOp {
     name: String,
     message: String,
-}
-
-impl UnimplementedOp {
-    pub fn new(name: impl AsRef<str>, message: impl AsRef<str>) -> UnimplementedOp {
-        UnimplementedOp { name: name.as_ref().to_string(), message: message.as_ref().to_string() }
-    }
+    output_arity: usize,
 }
 
 impl Op for UnimplementedOp {
@@ -39,6 +34,11 @@ impl InferenceRulesOp for UnimplementedOp {
     ) -> InferenceResult {
         Ok(())
     }
+
+    fn nboutputs(&self) -> TractResult<usize> {
+        Ok(self.output_arity)
+    }
+
 
     inference_op_as_op!();
 
