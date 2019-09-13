@@ -16,6 +16,7 @@ pub fn register_all_ops(reg: &mut TfOpRegister) {
     reg.insert("AvgPool", pools::avgpool);
     reg.insert("Conv2D", conv2d::conv2d);
     reg.insert("DepthwiseConv2dNative", dw_conv2d::depthwise_conv2d);
+    reg.insert("ExtractImagePatches", extract_image_patches::extract_image_patches);
     reg.insert("FusedBatchNorm", fused_batch_norm::fused_batch_norm);
     reg.insert("MaxPool", pools::maxpool);
     reg.insert("Relu", |_, _| Ok(Box::new(tract_core::ops::math::scalar_max(0.0))));

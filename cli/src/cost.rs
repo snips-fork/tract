@@ -23,7 +23,7 @@ fn handle_t(model: &TypedModel, params: &Parameters, options: DisplayOptions) ->
     let mut display_graph =
         DisplayGraph::from_model_and_options(model as &dyn Model, options.into())?
             .with_graph_def(&params.graph)?;
-    for i in ::tract_core::model::eval_order(&model)? {
+    for i in ::tract_core::model::eval_order(model)? {
         let inputs = model.node_input_facts(i)?;
         let cost = model.nodes()[i].op().cost(&*inputs)?;
         if !cost.is_empty() {

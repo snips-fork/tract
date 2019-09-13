@@ -1,49 +1,44 @@
 //! Evaluation order for nodes.
 use crate::internal::*;
 use bit_set;
-use std::fmt::{Debug, Display};
 
 /// Find an evaluation order for a model, using its default inputs and outputs
 /// as boundaries.
-pub fn eval_order<
-    TI: TensorInfo + Clone + 'static,
-    O: Debug + Display + AsRef<dyn Op> + AsMut<dyn Op> + Clone + 'static,
->(
-    model: &super::ModelImpl<TI, O>,
-) -> TractResult<Vec<usize>> {
-    let inputs = model.input_outlets()?.iter().map(|n| n.node).collect::<Vec<usize>>();
-    let targets = model.output_outlets()?.iter().map(|n| n.node).collect::<Vec<usize>>();
-    eval_order_for_nodes(model.nodes(), &inputs, &targets)
+pub fn eval_order(model: &dyn super::Model) -> TractResult<Vec<usize>> {
+    let inputs = model.input_outlets().iter().map(|n| n.node).collect::<Vec<usize>>();
+    let targets = model.output_outlets().iter().map(|n| n.node).collect::<Vec<usize>>();
+    eval_order_for_nodes(model, &inputs, &targets)
 }
 
 /// Find a working evaluation order for a list of nodes.
-pub fn eval_order_for_nodes<TI: TensorInfo, O: Debug + Display + AsRef<dyn Op> + AsMut<dyn Op>>(
-    nodes: &[BaseNode<TI, O>],
+pub fn eval_order_for_nodes(
+    model: &dyn super::Model,
     inputs: &[usize],
     targets: &[usize],
 ) -> TractResult<Vec<usize>> {
-    let mut done = bit_set::BitSet::with_capacity(nodes.len());
+    let mut done = bit_set::BitSet::with_capacity(model.nodes_len());
     let mut order: Vec<usize> = vec![];
     for &target in targets {
         if done.contains(target) {
             continue;
         }
         let mut current_stack: Vec<(usize, usize)> = vec![(target, 0)];
-        let mut pending = bit_set::BitSet::with_capacity(nodes.len());
+        let mut pending = bit_set::BitSet::with_capacity(model.nodes_len());
         while let Some((current_node, current_input)) = current_stack.pop() {
             if inputs.contains(&current_node)
                 || current_input
-                    == nodes[current_node].inputs.len() + nodes[current_node].control_inputs.len()
+                    == model.node_inputs(current_node).len() + model.node_control_inputs(current_node).len()
             {
                 order.push(current_node);
                 done.insert(current_node);
                 pending.remove(current_node);
             } else {
-                let precursor = if current_input < nodes[current_node].inputs.len() {
-                    nodes[current_node].inputs[current_input].node
+                let inputs = model.node_inputs(current_node);
+                let control_inputs = model.node_control_inputs(current_node);
+                let precursor = if current_input < inputs.len() {
+                    inputs[current_input].node
                 } else {
-                    nodes[current_node].control_inputs
-                        [current_input - nodes[current_node].inputs.len()]
+                    control_inputs[current_input - inputs.len()]
                 };
                 if done.contains(precursor) {
                     current_stack.push((current_node, current_input + 1));
@@ -53,7 +48,7 @@ pub fn eval_order_for_nodes<TI: TensorInfo, O: Debug + Display + AsRef<dyn Op> +
                         current_stack
                             .iter()
                             .skip_while(|s| s.0 != precursor)
-                            .for_each(|n| debug!("  {}", nodes[n.0]));
+                            .for_each(|n| debug!("  {}", model.node_format(n.0)));
                     }
                     bail!("Loop detected")
                 } else {

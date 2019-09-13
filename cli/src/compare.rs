@@ -18,41 +18,14 @@ pub fn handle_tensorflow(
     mut params: Parameters,
     output_params: DisplayOptions,
 ) -> CliResult<()> {
-    {
-        let tf = params.tf_model.take().unwrap();
-        return match &params.tract_model {
-            Model::Inference(m) => {
-                handle_tensorflow_t(cumulative, resilient, m, tf, &params, output_params)
-            }
-            Model::Typed(m) => {
-                handle_tensorflow_t(cumulative, resilient, m, tf, &params, output_params)
-            }
-            Model::Normalized(m) => {
-                handle_tensorflow_t(cumulative, resilient, m, tf, &params, output_params)
-            }
-            Model::Pulsed(_, _) => panic!("Compare unsupported in pulse mode"),
-        };
-    }
-}
+    let mut tf = params.tf_model.take().unwrap();
+    let tract = &params.tract_model;
 
-#[cfg(feature = "conform")]
-fn handle_tensorflow_t<TI: TensorInfo, O>(
-    cumulative: bool,
-    resilient: bool,
-    tract: &ModelImpl<TI, O>,
-    mut tf: tract_tensorflow::conform::tf::Tensorflow,
-    params: &Parameters,
-    output_params: DisplayOptions,
-) -> CliResult<()>
-where
-    TI: TensorInfo + Clone + for<'a> From<&'a Tensor>,
-    O: AsRef<Op> + AsMut<Op> + Display + Debug + Clone,
-{
     // First generate random values for the inputs.
     let input_facts = tract
-        .input_outlets()?
+        .input_outlets()
         .iter()
-        .map(|&i| Ok(tract.outlet_fact(i)?.to_tensor_fact()))
+        .map(|&i| Ok(tract.outlet_tensorfact(i)))
         .collect::<TractResult<Vec<_>>>()?;
     let generated = crate::tensor::make_inputs(&*input_facts)?;
 
@@ -60,24 +33,23 @@ where
     info!("Running the model on tensorflow.");
     trace!("Inject inputs in tensorflow graph.");
     let pairs: Vec<_> = tract
-        .input_outlets()?
+        .input_outlets()
         .iter()
-        .map(|s| &*tract.node(s.node).name)
+        .map(|s| &*tract.node_name(s.node))
         .zip(generated.iter().cloned())
         .collect();
 
     trace!("Execute the model on tensorflow.");
-    let eval_order = ::tract_core::model::eval_order(&tract)?;
-    let nodes = tract.nodes();
+    let eval_order = ::tract_core::model::eval_order(tract.as_ref())?;
 
     let mut wanted_outputs: Vec<&str> = eval_order
         .iter()
-        .filter(|&n| !tract.input_outlets().unwrap().contains(&OutletId::new(*n, 0)))
-        .map(|&n| &*nodes[n].name)
+        .filter(|&n| !tract.input_outlets().contains(&OutletId::new(*n, 0)))
+        .map(|&n| &*tract.node_name(n))
         .collect();
 
-    for o in tract.output_outlets()? {
-        let name = &*tract.nodes()[o.node].name;
+    for o in tract.output_outlets() {
+        let name = &*tract.node_name(o.node);
         if !wanted_outputs.contains(&name) {
             wanted_outputs.push(name);
         }
@@ -97,11 +69,17 @@ where
         });
     };
 
-    for (ix, input) in tract.input_outlets()?.iter().enumerate() {
-        let name = &tract.node(input.node).name;
+    for (ix, input) in tract.input_outlets().iter().enumerate() {
+        let name = &tract.node_name(input.node);
         all_values.insert(name.to_string(), Ok(tvec!(generated[ix].clone())));
     }
-    compare(cumulative, tract, &all_values, params, output_params)
+    dispatch_model_no_pulse!(params.tract_model, |m| compare(
+        cumulative,
+        m,
+        &all_values,
+        &params,
+        output_params
+    ))
 }
 
 pub fn handle_npz(
@@ -181,7 +159,7 @@ where
     O: AsRef<dyn Op> + AsMut<dyn Op> + Display + Debug + Clone,
     ModelImpl<TI, O>: Model,
 {
-    let eval_order = ::tract_core::model::eval_order(&tract)?;
+    let eval_order = ::tract_core::model::eval_order(tract)?;
 
     // Execute the model step-by-step on tract.
     let plan = SimplePlan::new(tract)?;

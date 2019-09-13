@@ -29,7 +29,7 @@ impl super::TypedPass for PropConst {
                     if model.nodes()[source.node].op().name() != "Const"
                         && model.outlet_fact(source)?.konst.is_some()
                         && eval_order_for_nodes(
-                            model.nodes(),
+                            model,
                             &model.input_outlets()?.iter().map(|n| n.node).collect::<Vec<_>>(),
                             &[source.node],
                         )?

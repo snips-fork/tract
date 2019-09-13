@@ -769,7 +769,7 @@ fn handle(matches: clap::ArgMatches) -> CliResult<()> {
             m.is_present("cumulative"),
             m.is_present("resilient"),
             params,
-            display_options_from_clap(m)?,
+            display_options_from_clap(&matches, m)?,
         ),
         #[cfg(not(feature = "conform"))]
         ("compare", _) => bail!("Need conform feature to be able to run comparison"),

@@ -46,7 +46,7 @@ where
     pub fn new_for_outputs(model: M, outputs: &[OutletId]) -> TractResult<SimplePlan<TI, O, M>> {
         let inputs = model.borrow().input_outlets()?.iter().map(|n| n.node).collect::<Vec<usize>>();
         let outputs_nodes = outputs.iter().map(|n| n.node).collect::<Vec<usize>>();
-        let order = eval_order_for_nodes(model.borrow().nodes(), &inputs, &outputs_nodes)?;
+        let order = eval_order_for_nodes(model.borrow(), &inputs, &outputs_nodes)?;
         let mut values_needed_until_step = vec![0; model.borrow().nodes().len()];
         for step in 0..order.len() {
             for i in &model.borrow().node(order[step]).inputs {
