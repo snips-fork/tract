@@ -49,8 +49,39 @@ impl Op for ExtractImagePatches {
 }
 
 impl StatelessOp for ExtractImagePatches {
-    fn eval(&self, inputs: TVec<Arc<Tensor>>) -> TractResult<TVec<Arc<Tensor>>> {
-        unimplemented!()
+    fn eval(&self, mut inputs: TVec<Arc<Tensor>>) -> TractResult<TVec<Arc<Tensor>>> {
+        let input = args_1!(inputs);
+        let input = input.to_array_view::<f32>()?.into_dimensionality::<ndarray::Ix4>()?;
+        let computed =
+            self.padding.compute(&input.shape()[1..3], &*self.ksizes, &*self.rates, &*self.strides);
+        let build_shape = (
+            input.shape()[0],
+            computed[0].output,
+            computed[1].output,
+            self.ksizes[0],
+            self.ksizes[1],
+            input.shape()[3],
+        );
+        let result = ndarray::Array6::<f32>::from_shape_fn(build_shape, |(n, h, w, kh, kw, c)| {
+            let h = h * self.strides[0] + kh * self.rates[0];
+            let w = w * self.strides[1] + kw * self.rates[1];
+            if h < computed[0].pad_before
+                || h - computed[0].pad_before >= input.shape()[1]
+                || w < computed[1].pad_before
+                || w - computed[1].pad_before >= input.shape()[2]
+            {
+                0.0
+            } else {
+                input[(n, h - computed[0].pad_before, w - computed[0].pad_before, c)]
+            }
+        });
+        let final_shape = (
+            input.shape()[0],
+            computed[0].output,
+            computed[1].output,
+            self.ksizes[0] * self.ksizes[1] * input.shape()[3],
+        );
+        Ok(tvec!(result.into_shape(final_shape)?.into_arc_tensor()))
     }
 }
 
