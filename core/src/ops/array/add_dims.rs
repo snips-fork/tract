@@ -67,6 +67,18 @@ impl TypedOp for AddDims {
         )?))
     }
 
+    fn declutter(
+        &self,
+        model: &TypedModel,
+        node: &TypedNode,
+    ) -> TractResult<Option<TypedModelPatch>> {
+        if self.axes.len() == 0 {
+            Ok(Some(TypedModelPatch::shunt_one_op(model, node)?))
+        } else {
+            Ok(None)
+        }
+    }
+
     fn invariants(&self, _model: &TypedModel, node: &TypedNode) -> TractResult<Invariants> {
         let mut i = 0;
         let mut axes = tvec!();
@@ -84,21 +96,47 @@ impl TypedOp for AddDims {
         Ok(axes.into_iter().collect())
     }
 
-    fn dispose_dummy_axis(
+    fn suggested_axis_changes(&self) -> TractResult<TVec<(InOut, AxisOp)>> {
+        Ok(self
+            .axes
+            .iter()
+            .enumerate()
+            .map(|(ix, axis)| (InOut::Out(ix), AxisOp::Rm(*axis)))
+            .collect())
+    }
+
+    fn change_axes(
         &self,
         _model: &TypedModel,
         _node: &TypedNode,
-        axes: &[Option<usize>]
-    ) -> TractResult<Option<Box<dyn TypedOp>>> {
-        let axis = axes[0].unwrap();
-        let axes = self
-            .axes
-            .iter()
-            .cloned()
-            .filter(|&a| a != axis)
-            .map(|a| a - (a > axis) as usize)
-            .collect();
-        Ok(Some(Box::new(AddDims::new(axes))))
+        io: InOut,
+        change: &AxisOp,
+    ) -> TractResult<Option<AxisChangeConsequence>> {
+        fn rm_axis(axes: &[usize], axis: usize) -> Vec<usize> {
+            axes.iter().filter(|&a| a != &axis).map(|&a| a - (a > axis) as usize).collect()
+        }
+        match change {
+            AxisOp::Rm(axis) => match io {
+                InOut::Out(_) if self.axes.contains(&axis) => Ok(Some(AxisChangeConsequence {
+                    substitute_op: Some(Box::new(AddDims::new(rm_axis(&self.axes, *axis)))),
+                    wire_changes: tvec!(),
+                })),
+                InOut::Out(_) => Ok(Some(AxisChangeConsequence {
+                    substitute_op: Some(Box::new(AddDims::new(rm_axis(&self.axes, *axis)))),
+                    wire_changes: tvec!((
+                        InOut::In(0),
+                        AxisOp::Rm(axis - self.axes.iter().filter(|&x| x < axis).count())
+                    )),
+                })),
+                InOut::In(_) => Ok(Some(AxisChangeConsequence {
+                    substitute_op: Some(Box::new(AddDims::new(rm_axis(&self.axes, *axis)))),
+                    wire_changes: tvec!((
+                        InOut::Out(0),
+                        AxisOp::Rm(axis + self.axes.iter().filter(|&x| x < axis).count())
+                    )),
+                })),
+            },
+        }
     }
 
     fn pulsify(
